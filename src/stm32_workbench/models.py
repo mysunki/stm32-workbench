@@ -12,6 +12,26 @@ FORMATS = {
     "i32": "i", "u64": "Q", "i64": "q", "f32": "f", "f64": "d", "bool": "?",
 }
 TYPES = ("raw", *FORMATS)
+PROBE_TYPES = {"auto": "Auto (exact UID)", "stlink": "ST-Link (V2 / V3)", "jlink": "SEGGER J-Link",
+               "cmsisdap": "CMSIS-DAP / DAPLink", "picoprobe": "Raspberry Pi Debug Probe"}
+WIRE_PROTOCOLS = ("swd", "jtag")
+
+
+def probe_selection(probe_type: str, uid: str = "") -> tuple[str, str]:
+    if probe_type not in PROBE_TYPES:
+        raise ValueError("Unsupported debug probe type")
+    if not isinstance(uid, str):
+        raise ValueError("Probe UID must be text")
+    uid = uid.strip()
+    if ":" in uid:
+        prefix, uid = uid.split(":", 1)
+        prefix = prefix.lower()
+        if prefix == "auto" or prefix not in PROBE_TYPES or probe_type not in ("auto", prefix):
+            raise ValueError("Probe UID prefix does not match the selected debugger type")
+        probe_type = prefix
+    if ":" in uid or len(uid) > 256:
+        raise ValueError("Use a full USB probe UID, optionally prefixed with its supported driver type")
+    return probe_type, uid
 
 
 def integer(value: int | str) -> int:
@@ -70,12 +90,20 @@ class Board:
     base_address: int | None = None
     interval_ms: int = 100
     watches: list[Symbol] = field(default_factory=list)
+    probe_type: str = "auto"
+    wire_protocol: str = "swd"
+    debug_frequency_hz: int = 1000000
 
     def validate(self):
         if not isinstance(self.id, str) or not self.id or len(self.id) > 80 or not self.name:
             raise ValueError("Every board needs a stable ID and name")
         if self.backend not in ("demo", "pyocd"):
             raise ValueError("Backend must be demo or pyocd")
+        _, probe_uid = probe_selection(self.probe_type, self.probe_uid)
+        if self.wire_protocol not in WIRE_PROTOCOLS:
+            raise ValueError("Wire protocol must be swd or jtag")
+        if type(self.debug_frequency_hz) is not int or not 10000 <= self.debug_frequency_hz <= 50000000:
+            raise ValueError("Debug clock must be 10000..50000000 Hz; the driver may quantize the requested speed")
         if type(self.interval_ms) is not int or not 20 <= self.interval_ms <= 10000:
             raise ValueError("Sampling interval must be 20..10000 ms")
         if len(self.watches) > 64:
@@ -84,7 +112,7 @@ class Board:
             raise ValueError("Watch names must be unique within a board")
         if self.base_address is not None and (type(self.base_address) is not int or not 0 <= self.base_address < 2**32):
             raise ValueError("Invalid binary base address")
-        if self.backend == "pyocd" and not all((self.probe_uid.strip(), self.target.strip(), self.firmware)):
+        if self.backend == "pyocd" and not all((probe_uid, self.target.strip(), self.firmware)):
             raise ValueError("Live boards need an exact probe UID, target name, and firmware")
 
     def to_dict(self) -> dict:
@@ -96,6 +124,8 @@ class Board:
         values["watches"] = [Symbol.from_dict(s) for s in item.get("watches", [])]
         if values.get("base_address") is not None:
             values["base_address"] = integer(values["base_address"])
+        if "debug_frequency_hz" in values:
+            values["debug_frequency_hz"] = integer(values["debug_frequency_hz"])
         if values.get("firmware") and root is not None:
             path = Path(values["firmware"])
             values["firmware"] = str(path if path.is_absolute() else (root / path).resolve())
@@ -111,9 +141,11 @@ def validate_boards(boards: list[Board]):
         board.validate()
     if len({b.id for b in boards}) != len(boards):
         raise ValueError("Duplicate board ID")
-    probes = [b.probe_uid for b in boards if b.backend == "pyocd"]
-    if len(probes) != len(set(probes)):
-        raise ValueError("A probe UID cannot be assigned to multiple boards")
+    probes = [probe_selection(b.probe_type, b.probe_uid) for b in boards if b.backend == "pyocd"]
+    for index, (kind, uid) in enumerate(probes):
+        for other_kind, other_uid in probes[:index]:
+            if uid == other_uid and (kind == other_kind or "auto" in (kind, other_kind)):
+                raise ValueError("A probe UID cannot be assigned to multiple boards; Auto can overlap an explicitly selected driver")
 
 
 def load_workspace(path: str | Path) -> list[Board]:

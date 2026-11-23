@@ -10,7 +10,7 @@ import uuid
 
 from .engine import Engine
 from .firmware import inspect_firmware
-from .models import Board, Symbol, TYPES, demo_boards, integer, load_workspace, workspace_document
+from .models import Board, PROBE_TYPES, Symbol, TYPES, demo_boards, integer, load_workspace, workspace_document
 from .recording import Recorder, Replay
 
 BG, PANEL, INK, MUTED, TEAL, LINE = "#0c1524", "#162338", "#e6eef8", "#9badc6", "#58dfc1", "#2a3c55"
@@ -232,7 +232,8 @@ class Workbench:
             ttk.Label(panel, text=label).grid(row=i, column=0, sticky="w", padx=(0, 18), pady=7)
             value = tk.StringVar(value=default)
             values[key] = value
-            entry = ttk.Combobox(panel, textvariable=value, values=TYPES, state="readonly", width=29) if key == "dtype" else ttk.Entry(panel, textvariable=value, width=32)
+            choices = TYPES if key == "dtype" else tuple(PROBE_TYPES) if key == "probe_type" else ("swd", "jtag") if key == "wire_protocol" else None
+            entry = ttk.Combobox(panel, textvariable=value, values=choices, state="readonly", width=29) if choices else ttk.Entry(panel, textvariable=value, width=32)
             entry.grid(row=i, column=1, sticky="ew")
             if i == 0:
                 entry.focus_set()
@@ -262,8 +263,9 @@ class Workbench:
         if len(self.boards) >= 16:
             return self._error("At most 16 boards per workspace")
         values = self._dialog("Configure a live board (does not connect)", [
-            ("name", "Board name", "My STM32"), ("probe_uid", "Exact probe UID", ""),
-            ("target", "pyOCD target name", ""), ("interval", "Interval (ms)", "100")])
+            ("name", "Board name", "My STM32"), ("probe_type", "Debugger type", "auto"), ("probe_uid", "Exact probe UID", ""),
+            ("target", "pyOCD target name", ""), ("wire_protocol", "Wire protocol", "swd"),
+            ("debug_frequency_hz", "Requested clock (Hz)", "1000000"), ("interval", "Interval (ms)", "100")])
         if not values:
             return
         try:
@@ -274,7 +276,11 @@ class Workbench:
             interval = integer(values["interval"])
             if not 20 <= interval <= 10000:
                 raise ValueError("Interval must be 20..10000 ms")
-            board = Board(uuid.uuid4().hex[:12], values["name"], "pyocd", probe_uid=values["probe_uid"], target=values["target"], interval_ms=interval)
+            frequency = integer(values["debug_frequency_hz"])
+            if not 10000 <= frequency <= 50000000:
+                raise ValueError("Debug clock must be 10000..50000000 Hz")
+            board = Board(uuid.uuid4().hex[:12], values["name"], "pyocd", probe_uid=values["probe_uid"], target=values["target"], interval_ms=interval,
+                          probe_type=values["probe_type"], wire_protocol=values["wire_protocol"], debug_frequency_hz=frequency)
             self.boards.append(board)
             self._refresh_boards()
             self.board_tree.selection_set(board.id)
@@ -369,8 +375,11 @@ class Workbench:
         from tkinter import messagebox
         try:
             from .backends import list_probes
-            probes = list_probes()
-            text = "\n\n".join(f"{p['description']}\n{p['uid']}" for p in probes) or "No probes found."
+            choice = self._dialog("Choose debugger driver to enumerate", [("probe_type", "Debugger type", self._selected_board().probe_type)])
+            if not choice:
+                return
+            probes = list_probes(choice["probe_type"])
+            text = "\n\n".join(f"{p['label']} | {p['description']}\n{p['uid']}" for p in probes) or "No matching probes found."
             messagebox.showinfo("USB probes (no target session opened)", text, parent=self.root)
         except Exception as error:
             self._error(error)

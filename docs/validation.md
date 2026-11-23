@@ -11,7 +11,9 @@ It compiled the native Windows UI from included C# source and launched actual fo
 | Step | Result |
 | --- | --- |
 | New source folder and isolated venv | Passed; no prebuilt UI or third-party packages reused |
-| Core and publication-contract tests | 43 tests passed |
+| Core and publication-contract tests | 55 tests passed |
+| Driver selection and connection settings | Actual dropdown, SWD/JTAG, clock, offline save and workspace restore passed |
+| Driver-kind/UID filtering | ST-Link/J-Link/CMSIS-DAP/Picoprobe contract checks with fake drivers passed |
 | Synthetic ELF generation and 4-variable inspection | Passed |
 | Three-board CLI recording and replay validation | Passed |
 | Actual window, 3 boards, 12 scalar watches and charts | Passed |
@@ -21,7 +23,7 @@ It compiled the native Windows UI from included C# source and launched actual fo
 | Board add / remove; workspace save / load | Passed |
 | Offline replay in actual table and chart | Passed |
 | Exit and fresh process restoring the workspace | Passed; 3 boards / 9 saved watches |
-| Rendered desktop evidence | 5 actual-control PNG captures generated |
+| Rendered desktop evidence | 6 actual-control PNG captures generated |
 
 The UI verifier invokes `PerformClick` on real Windows controls. It supplies file
 dialog paths rather than driving a physical mouse. UI messages reach the normal
@@ -29,6 +31,7 @@ Python controller, Engine, Recorder, Replay, and workspace code. Those operation
 are not mocked. Signals remain synthetic; this does not execute MCU instructions.
 
 See [machine-readable acceptance](acceptance.json),
+[debugger selection](screenshots/debugger-selection.png),
 [watch screen](screenshots/demo-watch.png),
 [firmware screen](screenshots/firmware-inspector.png),
 [replay screen](screenshots/offline-replay.png), and
@@ -40,8 +43,10 @@ self-referential hash. Run the verifier again to check a modified checkout.
 
 ### Remaining boundaries
 
-- This was an audited **local source snapshot**, not a download from a published
-  GitHub repository. Remote creation, push, and clone remain unverified.
+- This run uses an audited **local source snapshot**, not a direct GitHub download.
+  A user-run updater separately recorded verified remote commit
+  `fff8656e5717f3c73e006ea0b3fa145aefd5083b` for the preceding version. That receipt
+  does not establish that these newer driver-selection changes have been pushed.
 - Physical probes/STM32 boards were not connected. The optional pyOCD adapter has
   fake-memory contract tests; physical compatibility and real DWARF inference remain
   unverified. Full stepping/breakpoints/Flash programming are not implemented.
@@ -49,9 +54,9 @@ self-referential hash. Run the verifier again to check a modified checkout.
   not been run here. CI configuration is not a claim of CI success.
 - The original Tcl/Tk failure is resolved for the default Windows path by using a
   native .NET UI. The original Tk implementation remains available and unverified.
-- No remote publication occurred. Publication entry points now require the desktop
-  acceptance and publish its tested source copy; the interactive launcher opens
-  the evidence folder for human review before continuing.
+- Publication/update entry points require desktop acceptance. The new debugger-type
+  settings were only exercised offline; no real probe was scanned or connected in
+  this acceptance run. Fake adapter checks do not establish physical compatibility.
 
 ## Historical initial validation (before the native desktop was added)
 

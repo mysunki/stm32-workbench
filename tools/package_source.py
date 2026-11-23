@@ -15,7 +15,7 @@ ROOT_FILES = {"AGENTS.md", ".gitignore", "pyproject.toml", "run.py", "Start-Work
 DIRECTORIES = {"src": {".py", ".cs"}, "tests": {".py"}, "docs": {".md"}, "tools": {".py"}, ".github": {".yml", ".yaml"}}
 EXAMPLES = {"examples/demo.workspace.json"}
 PUBLIC_EVIDENCE = {"docs/acceptance.json", "docs/screenshots/demo-watch.png", "docs/screenshots/firmware-inspector.png",
-                   "docs/screenshots/offline-replay.png", "docs/screenshots/workspace-restart.png"}
+                   "docs/screenshots/offline-replay.png", "docs/screenshots/workspace-restart.png", "docs/screenshots/debugger-selection.png"}
 SECRET_PATTERNS = [
     re.compile(r"gh[pousr]_[A-Za-z0-9]{20,}"),
     re.compile(r"github_pat_[A-Za-z0-9_]{30,}"),

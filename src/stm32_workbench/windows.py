@@ -102,7 +102,7 @@ def launch(workspace=None, *, verify_dir=None, verify_mode="full"):
                         runtime.dispatch(command)
                     except Exception as error:
                         if not eof:
-                            send({"kind": "error", "text": f"{type(error).__name__}: {error}"})
+                            send({"kind": "error", "request_id": command.get("request_id"), "text": f"{type(error).__name__}: {error}"})
                     last_snapshot = 0
             keep_running = runtime.poll()
             if not eof and process.poll() is None:

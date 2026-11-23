@@ -8,7 +8,7 @@ import struct
 import time
 
 from .firmware import Firmware
-from .models import Board, FORMATS, Symbol
+from .models import Board, FORMATS, PROBE_TYPES, Symbol, probe_selection
 
 
 class DemoBackend:
@@ -57,17 +57,44 @@ def pyocd_options(board: Board) -> dict:
         "cache.read_code_from_elf": False,
         "no_config": True,
         "user_script": str(Path(__file__).with_name("_pyocd_noop.py")),
-        "frequency": 1000000,
+        "frequency": board.debug_frequency_hz,
+        "dap_protocol": board.wire_protocol,
+        "jlink.power": False,
     }
 
 
-def list_probes() -> list[dict]:
+def discover_probes(probe_type="auto", uid=""):
+    probe_type, uid = probe_selection(probe_type, uid)
     try:
         from pyocd.core.helpers import ConnectHelper
+        from pyocd.probe.aggregator import PROBE_CLASSES
     except ImportError as error:
         raise RuntimeError("Live support is optional. Install: python -m pip install -e '.[hardware]'") from error
-    probes = ConnectHelper.get_all_connected_probes(blocking=False)
-    return [{"uid": p.unique_id, "description": p.description} for p in probes]
+    classes = {name.lower(): klass for name, klass in PROBE_CLASSES.items()}
+    if probe_type != "auto" and probe_type not in classes:
+        hint = " Install the SEGGER J-Link driver package and ensure its DLL is available." if probe_type == "jlink" else " Check the pyOCD installation and platform USB driver support."
+        raise RuntimeError(PROBE_TYPES[probe_type] + " driver is not available." + hint)
+    selector = (probe_type + ":" + uid) if probe_type != "auto" else uid or None
+    try:
+        probes = ConnectHelper.get_all_connected_probes(blocking=False, unique_id=selector)
+    except Exception as error:
+        raise RuntimeError("Probe discovery failed for " + PROBE_TYPES[probe_type] + ": " + str(error)) from error
+    result = []
+    for probe in probes:
+        kinds = [name for name, klass in classes.items() if isinstance(probe, klass)]
+        kind = kinds[0] if len(kinds) == 1 else "unknown"
+        # Check both kind and the complete UID, even though pyOCD itself also filters.
+        if probe_type != "auto" and kind != probe_type:
+            continue
+        if uid and probe.unique_id != uid:
+            continue
+        result.append((probe, kind))
+    return result
+
+
+def list_probes(probe_type="auto") -> list[dict]:
+    return [{"uid": probe.unique_id, "description": probe.description, "probe_type": kind,
+             "label": PROBE_TYPES.get(kind, kind)} for probe, kind in discover_probes(probe_type)]
 
 
 class PyOCDBackend:
@@ -99,16 +126,14 @@ class PyOCDBackend:
             if any((s.name, s.address, s.size) not in known for s in self.board.watches):
                 raise ValueError("A watch does not match this firmware's symbol table")
         try:
-            from pyocd.core.helpers import ConnectHelper
             from pyocd.core.session import Session
         except ImportError as error:
             raise RuntimeError("Install the optional hardware extra to use pyOCD") from error
         # pyOCD's helper accepts substring matches. Enforce the full UID ourselves.
-        probes = [p for p in ConnectHelper.get_all_connected_probes(blocking=False)
-                  if p.unique_id == self.board.probe_uid]
+        probes = discover_probes(self.board.probe_type, self.board.probe_uid)
         if len(probes) != 1:
             raise ValueError("Exact probe UID not found or not unique; no fallback probe is selected")
-        self.session = Session(probes[0], options=pyocd_options(self.board))
+        self.session = Session(probes[0][0], options=pyocd_options(self.board))
         try:
             self.session.open()
             self.target = self.session.board.target

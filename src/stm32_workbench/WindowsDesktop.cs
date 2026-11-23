@@ -100,6 +100,88 @@ namespace STM32Workbench {
         }
     }
 
+    class ProbeChoice {
+        public string Code, Label;
+        public ProbeChoice(string code, string label) { Code = code; Label = label; }
+        public override string ToString() { return Label; }
+    }
+
+    class ConnectionDialog : Form {
+        public readonly string RequestId = Guid.NewGuid().ToString("N");
+        public ComboBox ProbeKind, Protocol, Frequency;
+        public TextBox BoardName, Uid, Target, Image, Base, Interval;
+        public Button ConfirmButton;
+        ComboBox found;
+        Label status;
+        string scannedType;
+        readonly Color bg = Color.FromArgb(11, 23, 38), panel = Color.FromArgb(23, 39, 59), ink = Color.FromArgb(229, 237, 247), muted = Color.FromArgb(157, 177, 198);
+        public string SelectedKind { get { return ((ProbeChoice)ProbeKind.SelectedItem).Code; } }
+        public void SelectKind(string code) { for (int i = 0; i < ProbeKind.Items.Count; ++i) if (((ProbeChoice)ProbeKind.Items[i]).Code == code) { ProbeKind.SelectedIndex = i; return; } throw new ArgumentException("Unknown probe kind"); }
+        TextBox Input(string value) { return new TextBox { Text = value, Dock = DockStyle.Fill, BackColor = panel, ForeColor = ink }; }
+        ComboBox Select() { return new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList }; }
+        void Field(TableLayoutPanel table, int row, string text, Control control, Control action = null) {
+            table.Controls.Add(new Label { Text = text, ForeColor = ink, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft }, 0, row);
+            table.Controls.Add(control, 1, row);
+            if (action != null) table.Controls.Add(action, 2, row); else table.SetColumnSpan(control, 2);
+        }
+        public ConnectionDialog(Dictionary<string, object> initial, Action<string, string> scan) {
+            Text = initial == null ? "Configure live board - offline setup" : "Edit live board - offline setup";
+            ClientSize = new Size(740, 605); MinimumSize = new Size(740, 605); StartPosition = FormStartPosition.CenterParent;
+            FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false; MinimizeBox = false;
+            BackColor = bg; ForeColor = ink; Font = new Font("Segoe UI", 10f);
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(20), ColumnCount = 1, RowCount = 3 };
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 62)); layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48)); Controls.Add(layout);
+            layout.Controls.Add(new Label { Text = "Select the debugger used by this board.\nSaving these settings does not connect to or reset a target.", ForeColor = muted, Dock = DockStyle.Fill }, 0, 0);
+            var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 11 };
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 165)); table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));
+            for (int i = 0; i < 10; ++i) table.RowStyles.Add(new RowStyle(SizeType.Absolute, 37));
+            table.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); layout.Controls.Add(table, 0, 1);
+            BoardName = Input(initial == null ? "My STM32" : Data.S(initial, "name"));
+            ProbeKind = Select(); ProbeKind.Items.AddRange(new object[] { new ProbeChoice("auto", "Auto - exact UID still required"), new ProbeChoice("stlink", "ST-Link (V2 / V3)"), new ProbeChoice("jlink", "SEGGER J-Link"), new ProbeChoice("cmsisdap", "CMSIS-DAP / DAPLink"), new ProbeChoice("picoprobe", "Raspberry Pi Debug Probe") }); ProbeKind.SelectedIndex = 0;
+            Protocol = Select(); Protocol.Items.AddRange(new object[] { "SWD", "JTAG" }); Protocol.SelectedIndex = 0;
+            Frequency = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown }; Frequency.Items.AddRange(new object[] { "50000", "100000", "200000", "500000", "1000000", "2000000", "4000000", "8000000" }); Frequency.Text = initial == null ? "1000000" : Data.S(initial, "debug_frequency_hz");
+            Uid = Input(initial == null ? "" : Data.S(initial, "probe_uid"));
+            found = Select(); found.SelectedIndexChanged += delegate { if (found.SelectedItem != null) Uid.Text = Data.S((Dictionary<string, object>)found.SelectedItem, "uid"); }; found.DisplayMember = "";
+            var scanButton = new ActionControl { Text = "Scan USB", Dock = DockStyle.Fill, BackColor = panel, ForeColor = ink, FlatStyle = FlatStyle.Flat };
+            scanButton.Click += delegate { scannedType = SelectedKind; status.Text = "Scanning selected probe driver; no target session is opened..."; scan(scannedType, RequestId); };
+            Target = Input(initial == null ? "" : Data.S(initial, "target")); Image = Input(initial == null ? "" : Data.S(initial, "firmware_path"));
+            Base = Input(initial == null ? "" : Data.S(initial, "base_address")); Interval = Input(initial == null ? "100" : Data.S(initial, "interval_ms"));
+            var browse = new ActionControl { Text = "Browse", Dock = DockStyle.Fill, BackColor = panel, ForeColor = ink, FlatStyle = FlatStyle.Flat };
+            browse.Click += delegate { using (var dialog = new OpenFileDialog { Filter = "Firmware|*.elf;*.out;*.axf;*.hex;*.bin|All files|*.*" }) if (dialog.ShowDialog(this) == DialogResult.OK) Image.Text = dialog.FileName; };
+            Field(table, 0, "Board name", BoardName); Field(table, 1, "Debugger type", ProbeKind); Field(table, 2, "Wire protocol", Protocol); Field(table, 3, "Requested clock (Hz)", Frequency);
+            Field(table, 4, "Exact probe UID", Uid); Field(table, 5, "Connected probes", found, scanButton); Field(table, 6, "pyOCD MCU target", Target); Field(table, 7, "Firmware ELF / OUT", Image, browse); Field(table, 8, "BIN base (optional)", Base); Field(table, 9, "Sample interval (ms)", Interval);
+            status = new Label { Dock = DockStyle.Fill, ForeColor = muted, Text = "Optional hardware packages and OS drivers are required. No physical board has been validated yet.", Padding = new Padding(0, 8, 0, 0) }; table.Controls.Add(status, 0, 10); table.SetColumnSpan(status, 3);
+            ProbeKind.SelectedIndexChanged += delegate { found.Items.Clear(); status.Text = SelectedKind == "jlink" ? "J-Link also needs the SEGGER driver/DLL. Select the full serial shown by pyOCD, without leading zeroes." : "Only the selected driver is scanned/used. Auto still requires the complete UID; there is no first-probe fallback."; };
+            if (initial != null) { SelectKind(Data.S(initial, "probe_type")); Protocol.SelectedItem = Data.S(initial, "wire_protocol").ToUpperInvariant(); }
+            var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(0, 10, 0, 0) };
+            ConfirmButton = new ActionControl { Text = "Save connection", Width = 145, Height = 32, BackColor = Color.FromArgb(17, 112, 100), ForeColor = ink, FlatStyle = FlatStyle.Flat };
+            ConfirmButton.Click += delegate {
+                int clock, interval;
+                if (String.IsNullOrWhiteSpace(BoardName.Text) || String.IsNullOrWhiteSpace(Uid.Text) || String.IsNullOrWhiteSpace(Target.Text) || String.IsNullOrWhiteSpace(Image.Text)) { status.Text = "Board name, exact UID, MCU target and firmware path are required."; return; }
+                if (!Int32.TryParse(Frequency.Text, out clock) || clock < 10000 || clock > 50000000 || !Int32.TryParse(Interval.Text, out interval) || interval < 20 || interval > 10000) { status.Text = "Clock must be 10,000..50,000,000 Hz; sample interval must be 20..10,000 ms."; return; }
+                DialogResult = DialogResult.OK;
+            };
+            var cancel = new ActionControl { Text = "Cancel", Width = 90, Height = 32, BackColor = panel, ForeColor = ink, FlatStyle = FlatStyle.Flat, DialogResult = DialogResult.Cancel };
+            actions.Controls.Add(ConfirmButton); actions.Controls.Add(cancel); layout.Controls.Add(actions, 0, 2); AcceptButton = ConfirmButton; CancelButton = cancel;
+        }
+        public Dictionary<string, object> Values() {
+            return Data.Obj("name", BoardName.Text.Trim(), "probe_type", SelectedKind, "probe_uid", Uid.Text.Trim(), "target", Target.Text.Trim(), "firmware", Image.Text.Trim(),
+                "base_address", Base.Text.Trim() == "" ? null : Base.Text.Trim(), "wire_protocol", Convert.ToString(Protocol.SelectedItem).ToLowerInvariant(), "debug_frequency_hz", Frequency.Text.Trim(), "interval_ms", Int32.Parse(Interval.Text));
+        }
+        public void SetProbes(string kind, List<Dictionary<string, object>> probes) {
+            if (SelectedKind != kind || scannedType != kind) { status.Text = "Debugger type changed. Scan again to use the new selection."; return; }
+            found.Items.Clear();
+            // Use an explicit label/value item so the UID textbox receives the full ID.
+            foreach (var item in probes) found.Items.Add(new ProbeDisplay(item));
+            status.Text = probes.Count == 0 ? "No matching probe found. Check hardware extras, OS drivers, cable, and selected type." : probes.Count + " matching probe(s). Select one to copy its exact UID.";
+        }
+        public void ScanError(string text) { status.Text = text; }
+        class ProbeDisplay : Dictionary<string, object> {
+            public ProbeDisplay(Dictionary<string, object> item) : base(item) { }
+            public override string ToString() { return Data.S(this, "description") + " | " + Data.S(this, "uid"); }
+        }
+    }
+
     class DesktopForm : Form {
         readonly Color bg = Color.FromArgb(11, 23, 38), panel = Color.FromArgb(23, 39, 59), ink = Color.FromArgb(229, 237, 247), muted = Color.FromArgb(157, 177, 198), accent = Color.FromArgb(83, 222, 190);
         readonly Dictionary<string, Button> buttons = new Dictionary<string, Button>();
@@ -121,6 +203,9 @@ namespace STM32Workbench {
         int phase, ticks;
         double recordedAt, faultAt;
         bool uiShown;
+        ConnectionDialog connectionDialog;
+        bool probeSetupVerified;
+        int probePhase;
 
         public DesktopForm(string verifyDirectory, string verifyMode) {
             verificationDir = verifyDirectory; verificationMode = verifyMode;
@@ -167,9 +252,9 @@ namespace STM32Workbench {
             summaryLabel = new Label { Dock = DockStyle.Fill, Text = "3 demo boards | 12 scalar signals | No probe opened", ForeColor = muted, TextAlign = ContentAlignment.MiddleLeft }; layout.Controls.Add(summaryLabel, 0, 2);
             var split = new SplitContainer { Dock = DockStyle.Fill, FixedPanel = FixedPanel.Panel1, SplitterWidth = 16, BackColor = bg };
             split.Size = new Size(1296, 650); split.SplitterDistance = 252; split.Panel1MinSize = 225; split.Panel2MinSize = 650; layout.Controls.Add(split, 0, 3);
-            var side = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 10, ColumnCount = 1 };
+            var side = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 11, ColumnCount = 1 };
             side.RowStyles.Add(new RowStyle(SizeType.Absolute, 30)); side.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            for (int i = 0; i < 7; i++) side.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+            for (int i = 0; i < 8; i++) side.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             side.RowStyles.Add(new RowStyle(SizeType.Absolute, 48)); split.Panel1.Controls.Add(side);
             side.Controls.Add(new Label { Text = "BOARDS", ForeColor = accent, Font = new Font(Font, FontStyle.Bold), Dock = DockStyle.Fill }, 0, 0);
             boards = new ListView { Dock = DockStyle.Fill, View = View.Details, FullRowSelect = true, HideSelection = false, MultiSelect = false, BackColor = panel, ForeColor = ink, BorderStyle = BorderStyle.None, HeaderStyle = ColumnHeaderStyle.Nonclickable };
@@ -177,13 +262,14 @@ namespace STM32Workbench {
             var sideButtons = new[] {
                 ActionButton("add_demo", "Add demo board", delegate { Send("add_demo"); }),
                 ActionButton("add_live", "Configure live board", AddLive),
+                ActionButton("edit_live", "Edit selected connection", delegate { ConfigureConnection(true); }),
                 ActionButton("remove_board", "Remove selected board", delegate { Send("remove_board"); }),
                 ActionButton("import", "Import firmware", ImportFirmware),
                 ActionButton("fault", "Inject DEMO link fault", delegate { Send("demo_fault"); }),
-                ActionButton("probes", "List USB probes", delegate { Send("probes"); }),
+                ActionButton("probes", "List USB probes", delegate { var board = boardRows.FirstOrDefault(row => Data.S(row, "id") == selected); Send("probes", "probe_type", board == null ? "auto" : Data.S(board, "probe_type")); }),
                 ActionButton("reset", "Reset to three-board demo", delegate { Send("reset_demo"); }) };
             for (int i = 0; i < sideButtons.Length; i++) { sideButtons[i].Dock = DockStyle.Fill; sideButtons[i].Margin = new Padding(0, 5, 0, 2); side.Controls.Add(sideButtons[i], 0, i + 2); }
-            side.Controls.Add(new Label { Text = "Import is offline. Start is explicit.\nDEMO is a signal source, not MCU emulation.", ForeColor = muted, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.5f), Padding = new Padding(0, 7, 0, 0) }, 0, 9);
+            side.Controls.Add(new Label { Text = "Import is offline. Start is explicit.\nDEMO is a signal source, not MCU emulation.", ForeColor = muted, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.5f), Padding = new Padding(0, 7, 0, 0) }, 0, 10);
             tabs = new TabControl { Dock = DockStyle.Fill, Font = Font }; split.Panel2.Controls.Add(tabs);
             var watchTab = new TabPage("Variable watch") { BackColor = bg, Padding = new Padding(12) };
             var imageTab = new TabPage("Firmware inspector") { BackColor = bg, Padding = new Padding(12) };
@@ -233,11 +319,12 @@ namespace STM32Workbench {
             if (kind == "log") { AppendLog(Data.S(message, "text")); return; }
             if (kind == "error") {
                 string text = Data.S(message, "text"); AppendLog("ERROR: " + text);
+                if (connectionDialog != null && Data.S(message, "request_id") == connectionDialog.RequestId) { connectionDialog.ScanError(text); return; }
                 if (verificationDir != null) { verificationErrors.Add(text); FinishVerification(false); }
                 else MessageBox.Show(this, text, "STM32 Workbench", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            if (kind == "probes") { var rows = Data.Rows(message, "probes"); MessageBox.Show(this, rows.Count == 0 ? "No USB probes found" : String.Join("\n\n", rows.Select(p => Data.S(p, "description") + "\n" + Data.S(p, "uid"))), "USB probes; no target session opened"); return; }
+            if (kind == "probes") { var rows = Data.Rows(message, "probes"); if (connectionDialog != null && Data.S(message, "request_id") == connectionDialog.RequestId) connectionDialog.SetProbes(Data.S(message, "probe_type"), rows); else MessageBox.Show(this, rows.Count == 0 ? "No matching USB probes found" : String.Join("\n\n", rows.Select(p => Data.S(p, "label") + " | " + Data.S(p, "description") + "\n" + Data.S(p, "uid"))), "USB probes; no target session opened"); return; }
             if (kind == "reset_chart") { plot.ClearTraces(); return; }
             if (kind == "firmware") {
                 firmwareInfo.Text = Data.S(message, "title").Replace("\n", Environment.NewLine); symbols.Rows.Clear();
@@ -269,6 +356,7 @@ namespace STM32Workbench {
                 buttons["start"].Enabled = !running && !busy; buttons["start"].Text = replay ? "Start replay" : "Start watching";
                 buttons["record"].Enabled = !replay; buttons["record"].Text = recording ? "Finish recording" : "Record session";
                 foreach (string key in new[] { "add_demo", "add_live", "remove_board", "import", "add_watch", "remove_watch", "add_symbols" }) buttons[key].Enabled = editable;
+                buttons["edit_live"].Enabled = editable && boardRows.Any(row => Data.S(row, "id") == selected && Data.S(row, "backend") == "pyocd");
                 foreach (string key in new[] { "load", "open_replay", "reset", "probes" }) buttons[key].Enabled = !running && !busy && !recording;
                 buttons["fault"].Enabled = running && !replay && boardRows.Any(row => Data.S(row, "id") == selected && Data.S(row, "backend") == "demo");
                 statusLabel.Text = (running ? replay ? "Replaying" : "Watching" : "Idle") + " | " + (recording ? "RECORDING " + Data.S(message, "recording") : "PC timestamps; source data preserved") + " | target CPUs are not paused by Stop sampling";
@@ -281,7 +369,7 @@ namespace STM32Workbench {
         string PickFile(string action) {
             if (verificationDir != null) {
                 if (action == "record" || action == "open_replay") return Path.Combine(verificationDir, "ui-session.jsonl");
-                if (action == "save" || action == "load") return Path.Combine(verificationDir, "ui.workspace.json");
+                if (action == "save" || action == "load") return Path.Combine(verificationDir, probeSetupVerified || verificationMode == "restart" ? "ui.workspace.json" : "debugger.workspace.json");
                 if (action == "import") return Path.Combine(verificationDir, "synthetic-symbols.elf");
             }
             if (action == "record" || action == "save") {
@@ -321,13 +409,38 @@ namespace STM32Workbench {
             if (watches.CurrentRow == null) return; string key = Convert.ToString(watches.CurrentRow.Tag); int split = key.IndexOf('|');
             Send("remove_watch", "board", key.Substring(0, split), "symbol", key.Substring(split + 1));
         }
-        void AddLive() {
-            var answer = Ask("Configure live board offline; does not connect", new[] { "Board name", "Exact probe UID", "pyOCD target", "Firmware path", "BIN base (optional)" }, new[] { "My STM32", "", "", "", "" });
-            if (answer != null) Send("add_live", "board_config", Data.Obj("name", answer["Board name"], "probe_uid", answer["Exact probe UID"], "target", answer["pyOCD target"], "firmware", answer["Firmware path"], "base_address", answer["BIN base (optional)"] == "" ? null : answer["BIN base (optional)"]));
+        void AddLive() { ConfigureConnection(false); }
+        void ConfigureConnection(bool edit) {
+            var existing = edit ? boardRows.FirstOrDefault(row => Data.S(row, "id") == selected && Data.S(row, "backend") == "pyocd") : null;
+            if (edit && existing == null) return;
+            using (var dialog = new ConnectionDialog(existing, delegate(string kind, string request) { Send("probes", "probe_type", kind, "request_id", request); })) {
+                connectionDialog = dialog;
+                if (verificationDir != null) {
+                    var automation = new System.Windows.Forms.Timer { Interval = 250 };
+                    dialog.Shown += delegate { automation.Start(); };
+                    automation.Tick += delegate {
+                        automation.Stop(); automation.Dispose();
+                        try {
+                            Check(dialog.ProbeKind.Items.Count == 5, "Actual debugger dropdown includes Auto, ST-Link, J-Link, CMSIS-DAP and Raspberry Pi probe");
+                            dialog.SelectKind("jlink"); Check(dialog.SelectedKind == "jlink", "J-Link selection changes the actual combobox value");
+                            dialog.SelectKind("cmsisdap"); Check(dialog.SelectedKind == "cmsisdap", "CMSIS-DAP selection changes the actual combobox value");
+                            dialog.SelectKind("stlink"); dialog.Protocol.SelectedItem = "JTAG"; dialog.Frequency.Text = "200000";
+                            dialog.BoardName.Text = "Probe setup example - offline"; dialog.Uid.Text = "EXAMPLE-NOT-CONNECTED";
+                            dialog.Target.Text = "stm32f103rc";
+                            // Use a project-relative synthetic path in public screenshots.
+                            var baseUri = new Uri(Environment.CurrentDirectory.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
+                            dialog.Image.Text = Uri.UnescapeDataString(baseUri.MakeRelativeUri(new Uri(Path.Combine(verificationDir, "synthetic-symbols.elf"))).ToString()).Replace('/', Path.DirectorySeparatorChar);
+                            Capture("00-debugger-selection.png", dialog); dialog.ConfirmButton.PerformClick();
+                        } catch (Exception error) { verificationErrors.Add(error.ToString()); dialog.DialogResult = DialogResult.Cancel; }
+                    };
+                }
+                try { if (dialog.ShowDialog(this) == DialogResult.OK) { if (existing == null) Send("add_live", "board_config", dialog.Values()); else Send("edit_live", "board", Data.S(existing, "id"), "board_config", dialog.Values()); } }
+                finally { connectionDialog = null; }
+            }
         }
-        void Capture(string filename) {
-            string path = Path.Combine(verificationDir, filename); Refresh();
-            using (var bitmap = new Bitmap(Width, Height)) { DrawToBitmap(bitmap, new Rectangle(0, 0, Width, Height)); bitmap.Save(path, System.Drawing.Imaging.ImageFormat.Png); }
+        void Capture(string filename, Control view = null) {
+            view = view ?? this; string path = Path.Combine(verificationDir, filename); view.Refresh();
+            using (var bitmap = new Bitmap(view.Width, view.Height)) { view.DrawToBitmap(bitmap, new Rectangle(0, 0, view.Width, view.Height)); bitmap.Save(path, System.Drawing.Imaging.ImageFormat.Png); }
             screenshots.Add(filename);
         }
         void Check(bool condition, string text) { if (!condition) throw new InvalidOperationException(text); verificationSteps.Add(text); }
@@ -336,6 +449,7 @@ namespace STM32Workbench {
             if (snapshot == null) return;
             try {
                 if (verificationMode == "restart") { VerifyRestart(); return; }
+                if (!probeSetupVerified) { VerifyProbeSettings(); return; }
                 switch (phase) {
                     case 0:
                         Check(uiShown && Visible && IsHandleCreated, "Real Windows form shown"); Check(boardRows.Count == 3 && watches.Rows.Count == 12, "Three demo boards and twelve watches displayed"); buttons["start"].PerformClick(); phase++; break;
@@ -376,6 +490,34 @@ namespace STM32Workbench {
                         Check(Data.N(snapshot, "total_samples") > 20 && plot.PointCount > 0, "Recorded samples replayed through the same table and chart"); tabs.SelectedIndex = 0; Capture("04-offline-replay.png"); FinishVerification(true); break;
                 }
             } catch (Exception error) { verificationErrors.Add(error.ToString()); FinishVerification(false); }
+        }
+        void VerifyProbeSettings() {
+            var configured = boardRows.FirstOrDefault(row => Data.S(row, "backend") == "pyocd");
+            switch (probePhase) {
+                case 0:
+                    Check(boardRows.Count == 3 && watches.Rows.Count == 12, "Initial workspace is synthetic before connection configuration");
+                    probePhase++; verificationTimer.Stop();
+                    try { buttons["add_live"].PerformClick(); } finally { verificationTimer.Start(); }
+                    if (verificationErrors.Count > 0) FinishVerification(false);
+                    break;
+                case 1:
+                    if (configured == null) return;
+                    Check(Data.S(configured, "probe_type") == "stlink" && Data.S(configured, "wire_protocol") == "jtag" && Data.N(configured, "debug_frequency_hz") == 200000, "Selected debugger, wire protocol and speed reached the real Python model without connecting");
+                    Check(!Data.B(snapshot, "running") && !Data.B(snapshot, "busy"), "Connection configuration opened no probe or sampling worker");
+                    buttons["save"].PerformClick(); probePhase++; break;
+                case 2:
+                    if (!File.Exists(Path.Combine(verificationDir, "debugger.workspace.json"))) return;
+                    buttons["remove_board"].PerformClick(); probePhase++; break;
+                case 3:
+                    if (boardRows.Count != 3) return; buttons["load"].PerformClick(); probePhase++; break;
+                case 4:
+                    if (configured == null) return;
+                    Check(Data.S(configured, "probe_type") == "stlink" && Data.S(configured, "wire_protocol") == "jtag" && Data.N(configured, "debug_frequency_hz") == 200000, "Debugger selection, protocol and speed restored from a real workspace file");
+                    if (selected != Data.S(configured, "id")) { Send("select", "board", Data.S(configured, "id")); return; }
+                    buttons["remove_board"].PerformClick(); probePhase++; break;
+                case 5:
+                    if (boardRows.Count != 3) return; probeSetupVerified = true; Check(boardRows.All(row => Data.S(row, "backend") == "demo"), "All following automated sampling remains synthetic"); break;
+            }
         }
         void VerifyRestart() {
             if (phase == 0) { Check(boardRows.Count == 3 && watches.Rows.Count == 9, "Fresh process restored three boards and nine saved watches"); buttons["start"].PerformClick(); phase = 1; }

@@ -16,7 +16,7 @@ import uuid
 from .backends import DemoBackend, create_backend, list_probes
 from .engine import Engine
 from .firmware import inspect_firmware
-from .models import Board, Symbol, demo_boards, integer, load_workspace, validate_boards, workspace_document
+from .models import Board, PROBE_TYPES, Symbol, demo_boards, integer, load_workspace, probe_selection, validate_boards, workspace_document
 from .recording import Recorder, Replay
 
 
@@ -228,12 +228,29 @@ class Desktop:
             self.firmware_revision += 1
         elif operation == "add_live":
             self.editable()
-            board = Board.from_dict({**command["board_config"], "id": uuid.uuid4().hex[:12], "backend": "pyocd"})
+            board = Board.from_dict({**command["board_config"], "id": uuid.uuid4().hex[:12], "backend": "pyocd"}, Path.cwd())
             validate_boards([*self.boards, board])
             self.boards.append(board)
             self.selected = board.id
             self.firmware_revision += 1
             self.log("Live board configured offline. Import its image and choose watches before starting")
+        elif operation == "edit_live":
+            self.editable()
+            previous = self.board(command["board"])
+            if previous.backend != "pyocd":
+                raise ValueError("Choose a live board to edit its connection")
+            values = previous.to_dict()
+            values.update(command["board_config"])
+            values.update({"id": previous.id, "backend": "pyocd"})
+            if values.get("firmware") != previous.firmware or values.get("base_address") != previous.base_address:
+                values["watches"] = []
+            board = Board.from_dict(values, Path.cwd())
+            updated = [board if item.id == previous.id else item for item in self.boards]
+            validate_boards(updated)
+            self.boards = updated
+            self.images.pop(previous.id, None)
+            self.firmware_revision += 1
+            self.log("Live connection settings updated offline; no probe was opened")
         elif operation == "remove_board":
             self.editable()
             if len(self.boards) <= 1:
@@ -274,7 +291,9 @@ class Desktop:
             self.reset(demo_boards())
         elif operation == "probes":
             self.idle()
-            self.messages.append({"kind": "probes", "probes": list_probes()})
+            self.messages.append({"kind": "probes", "request_id": command.get("request_id"),
+                                  "probe_type": command.get("probe_type", "auto"),
+                                  "probes": list_probes(command.get("probe_type", "auto"))})
         elif operation == "close":
             self.closing = True
             self.stop()
@@ -318,4 +337,8 @@ class Desktop:
                 "total_samples": self.total_samples, "dropped": self.dropped,
                 "boards": [{"id": b.id, "name": b.name, "backend": b.backend, "state": self.states.get(b.id, "ready"),
                             "firmware": Path(b.firmware).name if b.firmware else "No firmware required for demo",
+                            "firmware_path": b.firmware, "base_address": b.base_address,
+                            "probe_type": b.probe_type, "probe_label": PROBE_TYPES[b.probe_type],
+                            "probe_uid": b.probe_uid, "target": b.target, "wire_protocol": b.wire_protocol,
+                            "debug_frequency_hz": b.debug_frequency_hz,
                             "watches": len(b.watches), "interval_ms": b.interval_ms} for b in self.boards], "watches": watches}

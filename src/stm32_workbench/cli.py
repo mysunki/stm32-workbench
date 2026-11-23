@@ -24,7 +24,9 @@ def parser():
     inspect.add_argument("file", type=Path)
     inspect.add_argument("--base", type=lambda s: int(s, 0))
     inspect.add_argument("--json", action="store_true")
-    commands.add_parser("probes", help="Explicit USB probe enumeration; does not open a target session")
+    probes = commands.add_parser("probes", help="Explicit USB probe enumeration; does not open a target session")
+    from .models import PROBE_TYPES
+    probes.add_argument("--type", choices=tuple(PROBE_TYPES), default="auto", dest="probe_type")
     demo = commands.add_parser("record-demo", help="Record three synthetic boards without a GUI or drivers")
     demo.add_argument("--duration", type=float, default=5)
     demo.add_argument("--output", type=Path, required=True)
@@ -62,7 +64,7 @@ def main(argv=None) -> int:
                     print(f"Note: {note}")
         elif command == "probes":
             from .backends import list_probes
-            print(json.dumps(list_probes(), indent=2))
+            print(json.dumps(list_probes(args.probe_type), indent=2))
         elif command == "record-demo":
             if not math.isfinite(args.duration) or not 0.1 <= args.duration <= 3600:
                 raise ValueError("Duration must be 0.1..3600 seconds")

@@ -2,7 +2,7 @@
   "passed": true,
   "physical_hardware_opened": false,
   "network_used": false,
-  "source_origin": "source ZIP extracted first; audited snapshot created from extracted files; not a GitHub download",
+  "source_origin": "audited local source snapshot; not a GitHub download",
   "stages": [
     {
       "name": "fresh_source_copy",
@@ -60,9 +60,9 @@
       "exit_code": 0
     }
   ],
-  "source_files": 50,
-  "source_fingerprint": "2bd9012144fca8c57e55258b1d9d3cd498171fc2644f90ef77e15dd2d93e773e",
-  "tested_code_fingerprint": "4e112febf285a8ffe023e764855be5373b204b34db7fe8643bd57d542e669973",
+  "source_files": 51,
+  "source_fingerprint": "9de4ed7d21e9243b5855bf983c2a7f7b395eb8e6ffc3423d9f3500126373c67c",
+  "tested_code_fingerprint": "e31025bbf42a3d47c56ad874d094fc9237527c6f84c58a4054a080670b4fa2c5",
   "code_fingerprint_scope": "Python/C#/TOML/CMD/PowerShell source; excludes generated reports and screenshots to avoid self-referential hashes",
   "packages": [
     {
@@ -70,7 +70,7 @@
       "version": "26.2.1"
     }
   ],
-  "tests_passed": 43,
+  "tests_passed": 55,
   "python_version": "3.14.7",
   "environment": "new venv; no system/user packages; no downloads",
   "platform": "win32",
@@ -78,6 +78,15 @@
     "passed": true,
     "mode": "full",
     "steps": [
+      "Initial workspace is synthetic before connection configuration",
+      "Actual debugger dropdown includes Auto, ST-Link, J-Link, CMSIS-DAP and Raspberry Pi probe",
+      "J-Link selection changes the actual combobox value",
+      "CMSIS-DAP selection changes the actual combobox value",
+      "Selected debugger, wire protocol and speed reached the real Python model without connecting",
+      "Connection configuration opened no probe or sampling worker",
+      "Debugger selection, protocol and speed restored from a real workspace file",
+      "Debugger selection, protocol and speed restored from a real workspace file",
+      "All following automated sampling remains synthetic",
       "Real Windows form shown",
       "Three demo boards and twelve watches displayed",
       "Real engine samples reached numeric chart",
@@ -91,14 +100,15 @@
     ],
     "errors": [],
     "screenshots": [
+      "00-debugger-selection.png",
       "01-demo-watch.png",
       "02-demo-fault-isolation.png",
       "03-firmware-inspector.png",
       "04-offline-replay.png"
     ],
     "form_shown": true,
-    "chart_points": 65,
-    "samples_displayed": 84,
+    "chart_points": 66,
+    "samples_displayed": 76,
     "interaction_method": "PerformClick on actual UI controls; only file dialog paths are supplied by the verifier",
     "physical_hardware_opened": false
   },
@@ -132,14 +142,15 @@
   "ui_recording": {
     "schema": 1,
     "boards": 3,
-    "events": 88,
+    "events": 80,
     "source_modes": [
       "demo"
     ],
-    "samples": 84,
+    "samples": 76,
     "hardware_opened": false
   },
   "screenshots": [
+    "00-debugger-selection.png",
     "01-demo-watch.png",
     "02-demo-fault-isolation.png",
     "03-firmware-inspector.png",
@@ -147,7 +158,8 @@
     "05-workspace-restart.png"
   ],
   "native_compilation": "new executable compiled from included C# source inside fresh checkout",
-  "duration_seconds": 28.01,
+  "duration_seconds": 29.73,
   "validated_on": "2026-11-23",
-  "remote_published": false
+  "previous_user_update_commit": "fff8656e5717f3c73e006ea0b3fa145aefd5083b",
+  "remote_publication": "This local verification does not establish publication of the new debugger selector; use the separate updater receipt."
 }

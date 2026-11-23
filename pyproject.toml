@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stm32-workbench"
+version = "0.1.0"
+description = "An independent multi-board STM32 variable watch, firmware inspector, and session replay workbench."
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "mysunki"}]
+keywords = ["stm32", "embedded", "debugging", "pyocd", "multi-board"]
+classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Python :: 3", "Topic :: Software Development :: Embedded Systems"]
+dependencies = []
+
+[project.optional-dependencies]
+hardware = ["pyocd>=0.36,<1"]
+dwarf = ["pyelftools>=0.31,<1"]
+all = ["pyocd>=0.36,<1", "pyelftools>=0.31,<1"]
+
+[project.scripts]
+stm32-workbench = "stm32_workbench.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

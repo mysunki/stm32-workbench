@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "boards": [
+    {
+      "id": "demo-1",
+      "name": "Acquisition",
+      "backend": "demo",
+      "firmware": "",
+      "probe_uid": "",
+      "target": "",
+      "base_address": null,
+      "interval_ms": 100,
+      "watches": [
+        {
+          "name": "temperature_c",
+          "address": 536870912,
+          "size": 4,
+          "dtype": "f32"
+        },
+        {
+          "name": "supply_v",
+          "address": 536870916,
+          "size": 4,
+          "dtype": "f32"
+        },
+        {
+          "name": "motor_rpm",
+          "address": 536870920,
+          "size": 4,
+          "dtype": "u32"
+        },
+        {
+          "name": "tick",
+          "address": 536870924,
+          "size": 4,
+          "dtype": "u32"
+        }
+      ]
+    },
+    {
+      "id": "demo-2",
+      "name": "Controller",
+      "backend": "demo",
+      "firmware": "",
+      "probe_uid": "",
+      "target": "",
+      "base_address": null,
+      "interval_ms": 100,
+      "watches": [
+        {
+          "name": "temperature_c",
+          "address": 536870912,
+          "size": 4,
+          "dtype": "f32"
+        },
+        {
+          "name": "supply_v",
+          "address": 536870916,
+          "size": 4,
+          "dtype": "f32"
+        },
+        {
+          "name": "motor_rpm",
+          "address": 536870920,
+          "size": 4,
+          "dtype": "u32"
+        },
+        {
+          "name": "tick",
+          "address": 536870924,
+          "size": 4,
+          "dtype": "u32"
+        }
+      ]
+    },
+    {
+      "id": "demo-3",
+      "name": "Drive",
+      "backend": "demo",
+      "firmware": "",
+      "probe_uid": "",
+      "target": "",
+      "base_address": null,
+      "interval_ms": 100,
+      "watches": [
+        {
+          "name": "temperature_c",
+          "address": 536870912,
+          "size": 4,
+          "dtype": "f32"
+        },
+        {
+          "name": "supply_v",
+          "address": 536870916,
+          "size": 4,
+          "dtype": "f32"
+        },
+        {
+          "name": "motor_rpm",
+          "address": 536870920,
+          "size": 4,
+          "dtype": "u32"
+        },
+        {
+          "name": "tick",
+          "address": 536870924,
+          "size": 4,
+          "dtype": "u32"
+        }
+      ]
+    }
+  ]
+}

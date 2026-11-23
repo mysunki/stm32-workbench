@@ -25,3 +25,20 @@ jobs:
         run: python -I -B run.py selftest
       - name: Source audit
         run: python -I -B tools/package_source.py --check
+  windows-desktop:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Real desktop workflow from an empty environment
+        run: python -I -B tools/verify_from_scratch.py --output local/ci-desktop
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-desktop-evidence
+          path: |
+            local/ci-desktop/acceptance.json
+            local/ci-desktop/*.png
+            local/ci-desktop/*.log

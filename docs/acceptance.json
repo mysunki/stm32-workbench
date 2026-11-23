@@ -1,0 +1,153 @@
+{
+  "passed": true,
+  "physical_hardware_opened": false,
+  "network_used": false,
+  "source_origin": "source ZIP extracted first; audited snapshot created from extracted files; not a GitHub download",
+  "stages": [
+    {
+      "name": "fresh_source_copy",
+      "passed": true,
+      "inherited_executables": 0
+    },
+    {
+      "name": "isolated_environment",
+      "passed": true,
+      "exit_code": 0
+    },
+    {
+      "name": "installed_packages",
+      "passed": true,
+      "exit_code": 0
+    },
+    {
+      "name": "core_tests",
+      "passed": true,
+      "exit_code": 0
+    },
+    {
+      "name": "make_synthetic_example",
+      "passed": true,
+      "exit_code": 0
+    },
+    {
+      "name": "firmware_inspection",
+      "passed": true,
+      "exit_code": 0
+    },
+    {
+      "name": "record_cli_demo",
+      "passed": true,
+      "exit_code": 0
+    },
+    {
+      "name": "validate_cli_recording",
+      "passed": true,
+      "exit_code": 0
+    },
+    {
+      "name": "desktop_full",
+      "passed": true,
+      "exit_code": 0
+    },
+    {
+      "name": "desktop_restart",
+      "passed": true,
+      "exit_code": 0
+    },
+    {
+      "name": "validate_ui_recording",
+      "passed": true,
+      "exit_code": 0
+    }
+  ],
+  "source_files": 50,
+  "source_fingerprint": "2bd9012144fca8c57e55258b1d9d3cd498171fc2644f90ef77e15dd2d93e773e",
+  "tested_code_fingerprint": "4e112febf285a8ffe023e764855be5373b204b34db7fe8643bd57d542e669973",
+  "code_fingerprint_scope": "Python/C#/TOML/CMD/PowerShell source; excludes generated reports and screenshots to avoid self-referential hashes",
+  "packages": [
+    {
+      "name": "pip",
+      "version": "26.2.1"
+    }
+  ],
+  "tests_passed": 43,
+  "python_version": "3.14.7",
+  "environment": "new venv; no system/user packages; no downloads",
+  "platform": "win32",
+  "ui": {
+    "passed": true,
+    "mode": "full",
+    "steps": [
+      "Real Windows form shown",
+      "Three demo boards and twelve watches displayed",
+      "Real engine samples reached numeric chart",
+      "Injected demo fault isolated while other two boards continued",
+      "Recording written by actual recorder",
+      "Firmware import replaced only selected board watches",
+      "Imported scalar added with explicit float type",
+      "Fourth demo board added using the actual UI command",
+      "Saved workspace loaded with original board and typed watch definitions",
+      "Recorded samples replayed through the same table and chart"
+    ],
+    "errors": [],
+    "screenshots": [
+      "01-demo-watch.png",
+      "02-demo-fault-isolation.png",
+      "03-firmware-inspector.png",
+      "04-offline-replay.png"
+    ],
+    "form_shown": true,
+    "chart_points": 65,
+    "samples_displayed": 84,
+    "interaction_method": "PerformClick on actual UI controls; only file dialog paths are supplied by the verifier",
+    "physical_hardware_opened": false
+  },
+  "restart": {
+    "passed": true,
+    "mode": "restart",
+    "steps": [
+      "Fresh process restored three boards and nine saved watches",
+      "Restored workspace collected new synthetic values in a fresh process"
+    ],
+    "errors": [],
+    "screenshots": [
+      "05-workspace-restart.png"
+    ],
+    "form_shown": true,
+    "chart_points": 53,
+    "samples_displayed": 54,
+    "interaction_method": "PerformClick on actual UI controls; only file dialog paths are supplied by the verifier",
+    "physical_hardware_opened": false
+  },
+  "cli_recording": {
+    "schema": 1,
+    "boards": 3,
+    "events": 129,
+    "source_modes": [
+      "demo"
+    ],
+    "samples": 120,
+    "hardware_opened": false
+  },
+  "ui_recording": {
+    "schema": 1,
+    "boards": 3,
+    "events": 88,
+    "source_modes": [
+      "demo"
+    ],
+    "samples": 84,
+    "hardware_opened": false
+  },
+  "screenshots": [
+    "01-demo-watch.png",
+    "02-demo-fault-isolation.png",
+    "03-firmware-inspector.png",
+    "04-offline-replay.png",
+    "05-workspace-restart.png"
+  ],
+  "native_compilation": "new executable compiled from included C# source inside fresh checkout",
+  "duration_seconds": 28.01,
+  "validated_on": "2026-11-23",
+  "remote_published": false
+}

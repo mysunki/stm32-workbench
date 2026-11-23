@@ -17,6 +17,9 @@ For changes, explain the observed problem, resulting behavior, verification, and
 remaining limits. Add regression tests for parsers, data integrity, concurrency,
 or connection behavior when those change.
 
-Desktop validation can be run with `python -I -B tools/ui_smoke.py` on a machine with
-working Tk. A headless Linux machine can use an existing Xvfb display. This smoke
-check only starts synthetic sources.
+Before publication on Windows, run
+`python -I -B tools/verify_from_scratch.py --output local/my-new-verification`.
+This exercises actual native controls and Python operations from a fresh source
+copy and empty venv. Keep screenshots and distinguish synthetic from physical data.
+`tools/ui_smoke.py` is a legacy Tk-only smoke check; it does not validate the default
+Windows native frontend. Linux/macOS visual validation remains outstanding.

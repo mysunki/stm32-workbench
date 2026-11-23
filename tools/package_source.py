@@ -10,10 +10,12 @@ import sys
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-ROOT_FILES = {"AGENTS.md", ".gitignore", "pyproject.toml", "run.py", "Start-Workbench.cmd",
+ROOT_FILES = {"AGENTS.md", ".gitignore", "pyproject.toml", "run.py", "Start-Workbench.cmd", "Verify-Workbench.cmd",
               "Publish-GitHub.ps1", "Publish-Start.cmd", "README.md", "README.ko.md", "LICENSE", "CONTRIBUTING.md", "SECURITY.md"}
-DIRECTORIES = {"src": {".py"}, "tests": {".py"}, "docs": {".md"}, "tools": {".py"}, ".github": {".yml", ".yaml"}}
+DIRECTORIES = {"src": {".py", ".cs"}, "tests": {".py"}, "docs": {".md"}, "tools": {".py"}, ".github": {".yml", ".yaml"}}
 EXAMPLES = {"examples/demo.workspace.json"}
+PUBLIC_EVIDENCE = {"docs/acceptance.json", "docs/screenshots/demo-watch.png", "docs/screenshots/firmware-inspector.png",
+                   "docs/screenshots/offline-replay.png", "docs/screenshots/workspace-restart.png"}
 SECRET_PATTERNS = [
     re.compile(r"gh[pousr]_[A-Za-z0-9]{20,}"),
     re.compile(r"github_pat_[A-Za-z0-9_]{30,}"),
@@ -25,6 +27,7 @@ SECRET_PATTERNS = [
 def source_files(root=ROOT) -> list[Path]:
     root = root.resolve()
     candidates = [root / name for name in sorted(ROOT_FILES | EXAMPLES)]
+    candidates.extend(root / name for name in sorted(PUBLIC_EVIDENCE) if (root / name).is_file())
     for folder, extensions in DIRECTORIES.items():
         directory = root / folder
         if directory.is_symlink():
@@ -41,6 +44,11 @@ def source_files(root=ROOT) -> list[Path]:
         if path.stat().st_size > 2 * 1024 * 1024:
             raise ValueError(f"Unexpectedly large source: {path.name}")
         raw = path.read_bytes()
+        if path.relative_to(root).as_posix() in PUBLIC_EVIDENCE and path.suffix == ".png":
+            if not raw.startswith(b"\x89PNG\r\n\x1a\n"):
+                raise ValueError("Screenshot evidence must be a PNG")
+            result.append(path)
+            continue
         text = raw.decode("utf-8")
         if b"\0" in raw:
             raise ValueError(f"Unexpected binary source: {path.name}")

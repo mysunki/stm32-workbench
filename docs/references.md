@@ -10,6 +10,8 @@ were consulted for format/API behavior; their code is not copied or vendored.
 - [pyOCD Session API source](https://github.com/pyocd/pyOCD/blob/main/pyocd/core/session.py)
 - [pyelftools DWARF API examples](https://github.com/eliben/pyelftools/tree/main/examples)
 - [ARM ELF ABI specification](https://github.com/ARM-software/abi-aa/blob/main/aaelf32/aaelf32.rst)
+- [Windows Forms control rendering](https://learn.microsoft.com/en-us/dotnet/api/system.windows.forms.control.drawtobitmap)
+- [Windows .NET Framework JSON serialization](https://learn.microsoft.com/en-us/dotnet/api/system.web.script.serialization.javascriptserializer)
 
 The optional libraries have independent releases and licenses. Compatibility claims
 must identify the versions tested rather than relying on these links remaining unchanged.

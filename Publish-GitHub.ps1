@@ -33,8 +33,11 @@ finally {
 }
 if ($repositoryLookupExitCode -eq 0) { throw "$repository already exists. This helper will not overwrite or push to an existing repository." }
 
-& python -I -B (Join-Path $projectRoot 'run.py') selftest
-if ($LASTEXITCODE -ne 0) { throw 'Tests failed. Publication stopped.' }
+$verificationRoot = Join-Path $projectRoot ('local/before-publication-' + [guid]::NewGuid().ToString('N'))
+& python -I -B (Join-Path $projectRoot 'tools/verify_from_scratch.py') --output $verificationRoot
+if ($LASTEXITCODE -ne 0) { throw 'Fresh-environment desktop acceptance failed. Publication stopped.' }
+# Publish precisely the source snapshot used by the actual desktop acceptance run.
+$projectRoot = [IO.Path]::GetFullPath((Join-Path $verificationRoot 'source'))
 $manifestJson = & python -I -B (Join-Path $projectRoot 'tools/package_source.py') --list
 if ($LASTEXITCODE -ne 0) { throw 'Source audit failed. Publication stopped.' }
 $sourceFiles = @($manifestJson | ConvertFrom-Json)

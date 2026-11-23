@@ -6,12 +6,21 @@
 저장하고 나중에 보드 없이 다시 재생하는 데스크톱 프로그램입니다. 회사 제품명이나
 특정 펌웨어 변수에 의존하지 않는 새 구현입니다.
 
-현재 버전은 **0.1.0 알파**입니다. 가상 입력과 가짜 프로브 기반 검사를 통과한
-초기 버전이며, 실제 보드 호환성과 데스크톱 화면 표시는 추가 검증이 필요합니다.
+현재 버전은 **0.1.0 알파**입니다. 새 소스 폴더와 빈 가상 환경에서 실제 Windows
+화면 실행·버튼 동작·그래프·기록·재생·재시작 복원을 검증했습니다. 실제 보드 호환성은
+아직 미검증입니다. [검증 과정](docs/validation.md)을 함께 확인하세요.
+
+![실제 Windows 프로그램의 가상 보드 3개 화면](docs/screenshots/demo-watch.png)
+
+실제 프로그램에서 캡처한 화면입니다. 표시된 데이터는 가상 신호이며 실제 보드 결과가 아닙니다.
 
 ## 바로 실행
 
-Python 3.11 이상이 필요합니다. Windows에서는 Python 설치 항목의 Tcl/Tk도 필요합니다.
+GitHub 소스 ZIP을 풀거나 저장소를 복제한 뒤 `run.py`가 있는 폴더에서 시작합니다.
+Python 3.11 이상과 Windows의 .NET Framework 4.x C# 컴파일러가 필요합니다.
+Windows 기본 화면은 Tcl/Tk 없이 동작하며 첫 실행 때 포함된 C# 소스로 화면 실행 파일을
+생성합니다. 데모를 시작하기 위한 pip 패키지나 USB 드라이버 설치는 필요 없습니다.
+이번에 실제 확인한 환경은 Windows / Python 3.14.7입니다.
 
 ```console
 python -I -B run.py gui
@@ -20,6 +29,15 @@ python -I -B run.py gui
 또는 `Start-Workbench.cmd`를 더블클릭하고 **Start watching**을 누르세요.
 세 개의 가상 보드가 온도·전압·회전수·카운터를 만듭니다. USB 장비에 연결하지 않습니다.
 이 데모는 테스트 신호 발생기이며 STM32 명령을 실행하는 MCU 에뮬레이터가 아닙니다.
+
+- 변수 행을 선택하면 그래프가 바뀝니다. 같은 변수는 보드별로 겹쳐 볼 수 있습니다.
+- **Inject DEMO link fault**는 선택한 가상 보드에 오류를 넣습니다. 다른 보드는 계속 수집합니다.
+- **Record session → Stop sampling → Finish recording**으로 기록을 보관합니다.
+- **Open recording → Start replay**로 보드 없이 저장한 데이터를 재생합니다.
+- **Import firmware → Firmware inspector → 변수 선택 → Watch selected symbols**로 변수를 추가합니다.
+- **Save workspace / Load workspace**로 보드와 변수 설정을 저장하고 복원합니다.
+
+Linux/macOS는 기존 Tk 화면을 사용하며 해당 OS의 화면은 아직 검증하지 않았습니다.
 
 화면 없이 동작을 확인할 수도 있습니다.
 
@@ -50,7 +68,7 @@ python -I -B run.py selftest
 
 1. 원하는 PC의 가상 환경에 선택 의존성을 설치합니다: `python -m pip install -e ".[all]"`.
 2. **List USB probes**로 프로브의 전체 UID를 확인합니다.
-3. **Add live board**에 보드 이름, 전체 UID, pyOCD target 이름을 입력합니다.
+3. **Configure live board**에 보드 이름, 전체 UID, pyOCD target 이름과 펌웨어 경로를 입력합니다.
 4. 해당 보드를 선택하고 **Import firmware**로 현재 보드와 같은 빌드의 파일을 넣습니다.
 5. **Firmware inspector**에서 변수를 선택하고 **Watch selected symbols**를 누릅니다.
 6. **Start watching**을 누른 뒤 실제 연결 안내를 확인합니다.
@@ -63,10 +81,28 @@ pyOCD에는 attach 연결, 자동 잠금 해제 비활성화 등의 옵션을 �
 디버거 연결 자체의 장치별 영향까지 없다고 보장하지는 않습니다.
 이 프로젝트를 개발하거나 검사하는 동안 실제 장비에는 연결하지 않았습니다.
 
+## 새 환경에서 전체 과정 다시 검증
+
+```console
+python -I -B tools/verify_from_scratch.py --output local/my-new-verification
+```
+
+이 명령은 공개할 소스만 새 폴더에 복사하고 외부 패키지가 없는 가상 환경을 만듭니다.
+이전 실행 파일을 복사하지 않고 Windows 화면을 새로 빌드한 뒤 실제 버튼 경로로
+보드 표시·그래프·모의 오류 격리·펌웨어 읽기·변수 선택·기록·재생·재시작을 검사합니다.
+파일 선택창의 경로만 자동 지정하며 화면·수집기·저장 파일은 실제 구현을 사용합니다.
+출력 폴더에는 검사 결과 JSON과 실제 화면 캡처 5장이 남습니다. 이미 자료가 있는 출력
+폴더에는 덮어쓰지 않으므로 매번 새 이름을 사용하세요.
+
+이 검증은 로컬 소스의 재현 검사입니다. GitHub에서 실제로 내려받았다고 표현하지 않으며,
+보드가 없어도 되는 기능과 실제 보드 호환성 검증을 구분합니다.
+
 ## GitHub 게시
 
 Windows에서 명령어 입력 없이 진행하려면 **`Publish-Start.cmd`를 직접 더블클릭**하세요.
-Git과 GitHub CLI가 없으면 Windows Package Manager로 정상 설치를 시도하고,
+먼저 새 환경의 실제 화면 검증을 수행하고 결과 폴더를 열어 확인을 받습니다.
+검증 실패 시 게시하지 않습니다. 통과한 소스 스냅샷만 게시 대상으로 사용합니다.
+그다음 Git과 GitHub CLI가 없으면 Windows Package Manager로 정상 설치를 시도하고,
 브라우저에서 `mysunki` 계정 인증을 받은 뒤 검사·소스 분리·커밋·공개 저장소 생성을
 진행합니다. 설치 확인창과 브라우저 인증은 직접 확인해야 합니다. 기존 원격 저장소는
 덮어쓰지 않습니다. 이 실행 파일은 사용자가 일반 콘솔에서 실행하는 편의 도구이며,

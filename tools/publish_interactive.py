@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import webbrowser
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -94,21 +95,22 @@ def require_new_repository(gh):
         raise RuntimeError("Could not confirm that the destination repository is absent. Check network access and GitHub login, then retry.")
 
 
-def publish(git, gh, user):
+def publish(git, gh, user, source_root=ROOT):
+    source_root = Path(source_root).resolve()
     require_new_repository(gh)
-    run([sys.executable, "-I", "-B", ROOT / "run.py", "selftest"])
+    run([sys.executable, "-I", "-B", source_root / "run.py", "selftest"])
     # This audit returns an allowlist, not a recursive copy of the workspace.
-    result = run([sys.executable, "-I", "-B", ROOT / "tools/package_source.py", "--list"], capture=True)
+    result = run([sys.executable, "-I", "-B", source_root / "tools/package_source.py", "--list"], capture=True)
     names = json.loads(result.stdout)
     if not isinstance(names, list) or len(names) < 10 or not all(isinstance(name, str) for name in names):
         raise RuntimeError("Invalid source audit manifest")
     staging = Path(tempfile.mkdtemp(prefix="stm32-workbench-publish-"))
     print(f"Publication checkout: {staging}", flush=True)
     for name in names:
-        source, destination = (ROOT / name).resolve(), (staging / name).resolve()
-        if not source.is_relative_to(ROOT.resolve()) or not destination.is_relative_to(staging):
+        source, destination = (source_root / name).resolve(), (staging / name).resolve()
+        if not source.is_relative_to(source_root) or not destination.is_relative_to(staging):
             raise RuntimeError("Source manifest path escapes the selected project")
-        if (ROOT / name).is_symlink() or not source.is_file():
+        if (source_root / name).is_symlink() or not source.is_file():
             raise RuntimeError("Source manifest contains a missing file or symlink")
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
@@ -143,6 +145,18 @@ def main():
     try:
         print(f"STM32 Workbench: publish the audited source to PUBLIC repository {OWNER}/{NAME}.", flush=True)
         print("Browser login and normal Windows installer confirmation may require your input.\n", flush=True)
+        verification = ROOT / "local" / ("before-publication-" + time.strftime("%Y%m%d-%H%M%S"))
+        print("First: verify a fresh source copy and empty environment, including the actual Windows UI.", flush=True)
+        run([sys.executable, "-I", "-B", ROOT / "tools/verify_from_scratch.py", "--output", verification], cwd=ROOT)
+        proof = json.loads((verification / "acceptance.json").read_text(encoding="utf-8"))
+        if proof.get("passed") is not True:
+            raise RuntimeError("Desktop acceptance failed; publication is disabled")
+        print("Verification passed. Screenshots and results: " + str(verification), flush=True)
+        try:
+            os.startfile(str(verification))
+        except OSError:
+            pass
+        input("Review the screenshots. Press Enter to continue with PUBLIC GitHub publication, or Ctrl+C to stop: ")
         git = ensure_tool("git", "Git.Git")
         gh = ensure_tool("gh", "GitHub.cli")
         # Make the resolved Git available to gh in this process and its children.
@@ -151,7 +165,8 @@ def main():
         run([gh, "auth", "login", "--hostname", "github.com", "--git-protocol", "https", "--web", "--scopes", "workflow"])
         user = authenticated_user(gh)
         run([gh, "auth", "setup-git", "--hostname", "github.com"])
-        publish(git, gh, user)
+        # Publish the immutable source copy that passed the acceptance workflow.
+        publish(git, gh, user, source_root=verification / "source")
         return 0
     except KeyboardInterrupt:
         print("Stopped by the user. Check GitHub for partial creation before retrying.", file=sys.stderr)

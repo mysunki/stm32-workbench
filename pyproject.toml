@@ -24,3 +24,6 @@ stm32-workbench = "stm32_workbench.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+stm32_workbench = ["WindowsDesktop.cs"]

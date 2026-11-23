@@ -14,10 +14,17 @@ connection behavior. None is inferred from a company-specific product profile.
 | `backends.py` | Synthetic byte source; optional pyOCD connection and reads |
 | `engine.py` | Connection ownership, per-board workers, typed timestamped events |
 | `recording.py` | JSONL source provenance, durability, validation, offline playback |
-| `ui.py` | Tk main-thread event rendering and selected-series visualization |
+| `desktop.py` | UI-neutral application controller and demo fault injection |
+| `windows.py` / `WindowsDesktop.cs` | Native Windows controls and private stdio messaging; locally compiled from source |
+| `ui.py` | Original Tk frontend for other platforms |
 | `cli.py` | Inspection, synthetic capture, replay inspection, test entry points |
 
 ## Connection ownership
+
+Windows UI messages travel through private stdin/stdout pipes. Python owns all
+application operations; the C# host renders controls and sends explicit commands.
+The Windows path has no Tcl/Tk dependency. It uses the OS's .NET Framework compiler
+and assemblies; generated executables stay in ignored local state.
 
 Each board has one worker. That worker opens, uses, and closes its backend. It does
 not share a target object with the Tk thread or other boards. Duplicate probe UIDs

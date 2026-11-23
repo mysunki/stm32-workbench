@@ -1,4 +1,4 @@
-"""Exercise the real desktop widgets with synthetic data only. Needs working Tk."""
+"""Legacy Tk-specific smoke check. Windows native acceptance uses verify_from_scratch.py."""
 from pathlib import Path
 import sys
 

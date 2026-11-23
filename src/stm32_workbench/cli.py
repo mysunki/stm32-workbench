@@ -17,6 +17,9 @@ def parser():
     commands = result.add_subparsers(dest="command")
     gui = commands.add_parser("gui", help="Start the desktop UI with three synthetic demo boards")
     gui.add_argument("--workspace", type=Path)
+    gui.add_argument("--ui", choices=("auto", "native", "tk"), default="auto")
+    gui.add_argument("--verify-dir", type=Path, help=argparse.SUPPRESS)
+    gui.add_argument("--verify-mode", choices=("full", "restart"), default="full", help=argparse.SUPPRESS)
     inspect = commands.add_parser("inspect", help="Inspect a firmware file without USB access")
     inspect.add_argument("file", type=Path)
     inspect.add_argument("--base", type=lambda s: int(s, 0))
@@ -36,6 +39,12 @@ def main(argv=None) -> int:
     command = args.command or "gui"
     try:
         if command == "gui":
+            import os
+            choice = getattr(args, "ui", "auto")
+            if choice == "native" or (choice == "auto" and os.name == "nt"):
+                from .windows import launch
+                return launch(getattr(args, "workspace", None), verify_dir=getattr(args, "verify_dir", None),
+                              verify_mode=getattr(args, "verify_mode", "full"))
             from .ui import launch
             return launch(getattr(args, "workspace", None))
         if command == "inspect":
